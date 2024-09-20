@@ -1,0 +1,3 @@
+[workspace]
+members = ["model", "controller-cursive", "controller-readline"]
+resolver = "2"
