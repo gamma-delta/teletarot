@@ -35,7 +35,7 @@ fn main() {
       continue;
     };
 
-    let res = board.move_card(src, dst);
+    let res = board.move_card(src, dst, true);
     if let Err(ono) = res {
       println!("You can't do that! {:?}", &ono);
     }

@@ -91,9 +91,45 @@ impl Board {
     &mut self,
     source_zone: BoardZone,
     dest_zone: BoardZone,
+    cascade_column_stacks: bool,
   ) -> Result<(), CardMoveError> {
+    if source_zone == dest_zone {
+      return Err(CardMoveError::NoopMovement);
+    }
     if source_zone.is_write_only() {
       return Err(CardMoveError::WriteOnlySource);
+    }
+
+    if let (
+      true,
+      BoardZone::Column(src_col_idx),
+      BoardZone::Column(dst_col_idx),
+    ) = (cascade_column_stacks, &source_zone, &dest_zone)
+    {
+      let src_col = self.get_column(*src_col_idx);
+
+      let src_head = src_col.last().ok_or(CardMoveError::EmptySource)?;
+      let dst_head = self.get_column(*dst_col_idx).last();
+      let stack_ok = match dst_head {
+        Some(it) => src_head.can_stack(it),
+        None => true,
+      };
+      if !stack_ok {
+        return Err(CardMoveError::CannotStack);
+      }
+
+      let source_take_count = 1
+        + src_col
+          .iter()
+          .tuple_windows()
+          .take_while(|(prev, here)| prev.can_stack(here))
+          .count();
+
+      let src_col_mut = self.get_column_mut(*src_col_idx);
+      let sc_len = src_col_mut.len();
+      let mut transfer = src_col_mut.split_off(sc_len - source_take_count);
+      transfer.reverse();
+      self.get_column_mut(*dst_col_idx).extend(transfer);
     }
 
     let source_card = match &source_zone {
@@ -112,17 +148,17 @@ impl Board {
 
     match &dest_zone {
       BoardZone::Column(idx) => {
-        let col = self.get_column_mut(*idx);
-        let stack_ok = match col.last() {
+        let dst_col = self.get_column_mut(*idx);
+        let stack_ok = match dst_col.last() {
           None => true,
           Some(here) => source_card.can_stack(here),
         };
-        if stack_ok {
-          // will remove from the source in just a second!
-          col.push(source_card);
-        } else {
+        if !stack_ok {
           return Err(CardMoveError::CannotStack);
         }
+
+        // will remove from the source in just a second!
+        dst_col.push(source_card);
       }
       BoardZone::MinorFoundationStorage => {
         if self.minor_foundation_storage.is_some() {
@@ -271,7 +307,7 @@ impl std::ops::Deref for Column {
 
 impl Column {}
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BoardZone {
   Column(usize),
   MinorFoundationStorage,
@@ -294,6 +330,7 @@ impl BoardZone {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum CardMoveError {
+  NoopMovement,
   EmptySource,
   WriteOnlySource,
   CannotStack,
