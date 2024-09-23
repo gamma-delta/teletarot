@@ -8,9 +8,9 @@ use itertools::{iproduct, Itertools};
 
 #[derive(Debug, Clone, PartialEq, Eq, Getters, CopyGetters, MutGetters)]
 pub struct Board {
+  #[getset(get = "pub")]
   columns: [Column; Board::COLUMN_COUNT],
   /// If there's a card sideways over the minor foundation, it goes here.
-  #[getset(get = "pub")]
   minor_foundation_storage: Option<Card>,
 
   /// The maximum card in each of the minor foundation slots, in order of suit.
@@ -54,7 +54,7 @@ impl Board {
       deck.len(),
       Board::COLUMN_COUNT,
     );
-    let column_start_height = deck.len() / Board::COLUMN_COUNT;
+    let column_start_height = deck.len() / (Board::COLUMN_COUNT - 1);
     let columns = deck
       .chunks_exact(column_start_height)
       .map(|chunk| Column {
@@ -229,6 +229,29 @@ impl Board {
 
     Ok(())
   }
+  pub fn check_automove_cards(&mut self) {
+    'columns: loop {
+      let moved_any = (0..Board::COLUMN_COUNT).any(|col_idx| {
+        let src_zone = BoardZone::Column(col_idx);
+        'fix_top: loop {
+          let moved_any =
+            [BoardZone::MinorFoundation, BoardZone::MajorFoundation]
+              .iter()
+              .any(|dst| {
+                let res = self.move_card(src_zone.clone(), dst.clone(), false);
+                res.is_ok()
+              });
+          if !moved_any {
+            break 'fix_top;
+          }
+        }
+        false
+      });
+      if !moved_any {
+        break 'columns;
+      };
+    }
+  }
 
   pub fn get_column(&self, idx: usize) -> &Column {
     &self.columns[idx]
@@ -282,6 +305,10 @@ impl Board {
       .collect::<Vec<_>>()
       .try_into()
       .unwrap()
+  }
+
+  pub fn minor_foundation_storage(&self) -> Option<&Card> {
+    self.minor_foundation_storage.as_ref()
   }
 }
 

@@ -4,3 +4,12 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+codepage-437 = "0.1.0"
+cursive-hjkl = "0.2.0"
+itertools = "0.13.0"
+rexpaint = "0.1.1"
+teletarot-model = { path = "../model" }
+
+[dependencies.cursive]
+version = "0.21.1"
+features = ["crossterm-backend"]

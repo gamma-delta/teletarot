@@ -1,0 +1,61 @@
+   Compiling teletarot-controller-cursive v0.1.0 (/home/petrak/coding/games/2024/teletarot/controller-cursive)
+warning: unused imports: `BoxedView`, `FixedLayout`, and `PaletteColor`
+ --> controller-cursive/src/main.rs:4:40
+  |
+4 |   theme::{BaseColor, Color, ColorType, PaletteColor, Style, Theme},
+  |                                        ^^^^^^^^^^^^
+5 |   views::{BoxedView, FixedLayout},
+  |           ^^^^^^^^^  ^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `iproduct`
+ --> controller-cursive/src/boxes.rs:2:17
+  |
+2 | use itertools::{iproduct, Itertools};
+  |                 ^^^^^^^^
+
+warning: unused imports: `BaseColor`, `StyledStr`, and `vec::Vec2i`
+ --> controller-cursive/src/xp.rs:5:11
+  |
+5 |   theme::{BaseColor, Color, ColorPair, Style},
+  |           ^^^^^^^^^
+6 |   utils::markup::{StyledStr, StyledString},
+  |                   ^^^^^^^^^
+7 |   vec::Vec2i,
+  |   ^^^^^^^^^^
+
+warning: unused import: `CursiveExt`
+ --> controller-cursive/src/main.rs:6:12
+  |
+6 |   Cursive, CursiveExt, Printer, Rect, Vec2, View, With,
+  |            ^^^^^^^^^^
+
+warning: unused variable: `t`
+  --> controller-cursive/src/main.rs:19:47
+   |
+19 |   let theme = Theme::terminal_default().with(|t| {
+   |                                               ^ help: if this is intentional, prefix it with an underscore: `_t`
+   |
+   = note: `#[warn(unused_variables)]` on by default
+
+warning: constant `CARD_PADDING` is never used
+  --> controller-cursive/src/xp.rs:20:11
+   |
+20 | pub const CARD_PADDING: usize = 1;
+   |           ^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: variant `NeverHilight` is never constructed
+   --> controller-cursive/src/xp.rs:145:3
+    |
+142 | pub enum CardBorderColor {
+    |          --------------- variant in this enum
+...
+145 |   NeverHilight,
+    |   ^^^^^^^^^^^^
+
+warning: `teletarot-controller-cursive` (bin "teletarot-controller-cursive") generated 7 warnings (run `cargo fix --bin "teletarot-controller-cursive"` to apply 3 suggestions)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.46s
+     Running `target/debug/teletarot-controller-cursive`
