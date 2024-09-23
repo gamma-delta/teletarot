@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 codepage-437 = "0.1.0"
 cursive-hjkl = "0.2.0"
+getset = "0.1.3"
 itertools = "0.13.0"
 rexpaint = "0.1.1"
 teletarot-model = { path = "../model" }

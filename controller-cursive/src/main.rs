@@ -38,12 +38,6 @@ struct TeletarotView {
 }
 
 impl TeletarotView {
-  const VIEW_SIZE: Vec2 = Vec2::new(
-    Board::COLUMN_COUNT * (CARD_WIDTH + 2) + 2,
-    CARD_HEIGHT + 3 + Self::TABLEAU_HEIGHT,
-  );
-  const TABLEAU_HEIGHT: usize = CARD_HEIGHT * 3;
-
   fn new(seed: Option<u64>) -> Self {
     Self {
       atlas: CardAtlas::new(),
@@ -63,22 +57,16 @@ impl TeletarotView {
     |||   |||
     |||   |||
     */
-    let majfound_width = 22 + CARD_WIDTH + 2;
 
-    for (idx, card) in self
-      .board
-      .virtual_cards_major_foundation_left()
-      .iter()
-      .enumerate()
-    {
-      self.atlas.print_card(
-        card,
-        (1 + idx, 1),
-        printer,
-        false,
-        CardBorderColor::HilightIfThickBorder,
-      );
-    }
+    let final_major = match (
+      self.board.major_foundation_left_max(),
+      self.board.major_foundation_right_min(),
+    ) {
+      (Some(left), Some(right)) if left + 1 == right => Some(left),
+      _ => None,
+    };
+
+    // Print right first so that the leftmost card appears on top
     for (idx, card) in self
       .board
       .virtual_cards_major_foundation_right()
@@ -87,7 +75,24 @@ impl TeletarotView {
     {
       self.atlas.print_card(
         card,
-        (majfound_width - idx, 1),
+        self.atlas.maj_fndn_right() - (CARD_WIDTH + idx + 1, 0),
+        printer,
+        false,
+        CardBorderColor::HilightIfThickBorder,
+      );
+    }
+    for (idx, card) in self
+      .board
+      .virtual_cards_major_foundation_left()
+      .iter()
+      .enumerate()
+    {
+      let is_final = Some(idx as u8) == final_major;
+      self.atlas.print_card(
+        card,
+        self.atlas.maj_fndn_left()
+          + (idx + if is_final { CARD_WIDTH / 2 } else { 0 }, 0)
+          - (0, if is_final { 1 } else { 0 }),
         printer,
         false,
         CardBorderColor::HilightIfThickBorder,
@@ -102,11 +107,11 @@ impl TeletarotView {
       .iter()
       .enumerate()
     {
-      let xpos = Self::VIEW_SIZE.x - (4 - suit_idx) * (CARD_WIDTH + 2) - 1;
+      let pos = self.atlas.min_fndn_poses()[suit_idx];
       // slot, just in case
       BoxSide::draw_box(
         printer,
-        (xpos, 1),
+        pos,
         (CARD_WIDTH + 2, CARD_HEIGHT + 2),
         fg_color(Color::Light(BaseColor::Black)),
         false,
@@ -118,14 +123,10 @@ impl TeletarotView {
       } else {
         CardBorderColor::HilightIfThickBorder
       };
-      self.atlas.print_card(card, (xpos, 1), printer, false, cbc);
+      self.atlas.print_card(card, pos, printer, false, cbc);
     }
 
     // Minor storage
-    let mfs_pos = (
-      Self::VIEW_SIZE.x - 2 * (CARD_WIDTH + 2) - CARD_WIDTH / 2 - 2,
-      1,
-    );
     let normal_column = self.cursor == 11;
     let src_column = self.cursor_src == Some(11);
     let selected = normal_column || src_column;
@@ -133,14 +134,17 @@ impl TeletarotView {
     if selected {
       BoxSide::draw_box(
         printer,
-        mfs_pos,
+        self.atlas.min_fndn_storage(),
         CARD_SIZE + Vec2::new(2, 2),
         fg_color(Color::Dark(BaseColor::White)),
         selected,
       );
       printer.with_color(Color::Light(BaseColor::Black).into(), |prn| {
         prn.print_rect(
-          Rect::from_size(Vec2::from(mfs_pos) + Vec2::new(1, 1), CARD_SIZE),
+          Rect::from_size(
+            Vec2::from(self.atlas.min_fndn_storage()) + Vec2::new(1, 1),
+            CARD_SIZE,
+          ),
           " ",
         );
       });
@@ -153,37 +157,30 @@ impl TeletarotView {
         CardBorderColor::HilightIfThickBorder
       };
 
-      self
-        .atlas
-        .print_card(storage, mfs_pos, printer, selected, cbc);
+      self.atlas.print_card(
+        storage,
+        self.atlas.min_fndn_storage(),
+        printer,
+        selected,
+        cbc,
+      );
     }
   }
 
   fn draw_tableau(&self, printer: &Printer) {
-    let tableau_y = CARD_HEIGHT + 3;
-    BoxSide::draw_box(
-      printer,
-      (0, tableau_y),
-      (Self::VIEW_SIZE.x, Self::TABLEAU_HEIGHT),
-      fg_color(Color::Dark(BaseColor::White)),
-      false,
-    );
-
-    let tableau_card_y = tableau_y + 1;
-
     for (col_idx, col) in self.board.columns().iter().enumerate() {
-      let col_x = 1 + (col_idx * (CARD_WIDTH + 2));
+      let base_pos = self.atlas.column_poses()[col_idx];
       // base slot
       BoxSide::draw_box(
         printer,
-        (col_x, tableau_card_y),
+        base_pos,
         (CARD_WIDTH + 2, CARD_HEIGHT + 2),
         fg_color(Color::Light(BaseColor::Black)),
         col_idx == self.cursor,
       );
 
       for (card_idx, card) in col.iter().enumerate() {
-        let pos = (col_x, tableau_card_y + card_idx * 2);
+        let pos = base_pos + (0, card_idx * 2);
 
         let normal_column = col_idx == self.cursor;
         let src_column = Some(col_idx) == self.cursor_src;
@@ -225,10 +222,11 @@ impl TeletarotView {
 
 impl View for TeletarotView {
   fn required_size(&mut self, _constraint: cursive::Vec2) -> cursive::Vec2 {
-    Self::VIEW_SIZE
+    self.atlas.board_size()
   }
 
   fn draw(&self, printer: &cursive::Printer) {
+    self.atlas.print_background(printer);
     self.draw_foundations(printer);
     self.draw_tableau(printer);
   }

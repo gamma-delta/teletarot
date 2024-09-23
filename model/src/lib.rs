@@ -1,5 +1,7 @@
 mod cards;
 
+use std::array;
+
 pub use cards::*;
 
 use fastrand::Rng;
@@ -57,9 +59,7 @@ impl Board {
     let column_start_height = deck.len() / (Board::COLUMN_COUNT - 1);
     let columns = deck
       .chunks_exact(column_start_height)
-      .map(|chunk| Column {
-        cards: chunk.to_owned(),
-      })
+      .map(|chunk| Column::new(chunk.to_owned()))
       .collect_vec();
     let space_center = Board::COLUMN_COUNT / 2;
     let spaced_columns = (0..Board::COLUMN_COUNT)
@@ -84,6 +84,22 @@ impl Board {
       minor_foundation_maxes,
       major_foundation_left_max: None,
       major_foundation_right_min: None,
+    }
+  }
+
+  pub fn new_solved(final_major_arcana: u8) -> Self {
+    let (mfl, mfr) = match final_major_arcana {
+      Card::MAJOR_ARCANA_MIN => (None, Some(Card::MAJOR_ARCANA_MIN)),
+      Card::MAJOR_ARCANA_MAX => (Some(Card::MAJOR_ARCANA_MAX), None),
+      _ => (Some(final_major_arcana), Some(final_major_arcana + 1)),
+    };
+
+    Self {
+      columns: array::from_fn(|_| Column::empty()),
+      minor_foundation_storage: None,
+      minor_foundation_maxes: [Some(Card::MINOR_ARCANA_MAX); 4],
+      major_foundation_left_max: mfl,
+      major_foundation_right_min: mfr,
     }
   }
 
@@ -238,7 +254,7 @@ impl Board {
             [BoardZone::MinorFoundation, BoardZone::MajorFoundation]
               .iter()
               .any(|dst| {
-                let res = self.move_card(src_zone.clone(), dst.clone(), false);
+                let res = self.move_card(src_zone.clone(), dst.clone(), true);
                 res.is_ok()
               });
           if !moved_any {
@@ -316,6 +332,16 @@ impl Board {
 pub struct Column {
   /// These go top-to-bottom, so the only accessible card is the last one.
   cards: Vec<Card>,
+}
+
+impl Column {
+  fn new(cards: Vec<Card>) -> Self {
+    Self { cards }
+  }
+
+  fn empty() -> Self {
+    Self::new(Vec::new())
+  }
 }
 
 impl std::ops::DerefMut for Column {
