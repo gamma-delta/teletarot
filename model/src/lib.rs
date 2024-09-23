@@ -1,4 +1,5 @@
 mod cards;
+mod random;
 
 use std::array;
 
@@ -30,61 +31,12 @@ pub struct Board {
 
 impl Board {
   pub const COLUMN_COUNT: usize = 11;
+  pub const DECK_SIZE: usize =
+    (Card::MINOR_ARCANA_MAX - Card::MINOR_ARCANA_MIN + 1) as usize * 4
+      + (Card::MAJOR_ARCANA_MAX - Card::MAJOR_ARCANA_MIN + 1) as usize;
 
   pub fn new(seed: Option<u64>) -> Self {
-    let mut rng = match seed {
-      Some(seed) => Rng::with_seed(seed),
-      None => Rng::new(),
-    };
-
-    // Skip aces in the shuffled deck
-    let iter_minor =
-      iproduct!((Card::MINOR_ARCANA_MIN + 1)..=Card::MINOR_ARCANA_MAX, 0..=3)
-        .map(|(number, suit_idx)| {
-          let suit = Suit::Minor(MinorSuit::n(suit_idx).unwrap());
-          Card::new(suit, number)
-        });
-    let iter_major = (Card::MAJOR_ARCANA_MIN..=Card::MAJOR_ARCANA_MAX)
-      .map(|number| Card::new(Suit::MajorArcana, number));
-    let mut deck = iter_minor.chain(iter_major).collect_vec();
-    rng.shuffle(&mut deck);
-
-    assert_eq!(
-      deck.len() % (Board::COLUMN_COUNT - 1),
-      0,
-      "deck len {} should be divisible by the column count ({}) minus 1",
-      deck.len(),
-      Board::COLUMN_COUNT,
-    );
-    let column_start_height = deck.len() / (Board::COLUMN_COUNT - 1);
-    let columns = deck
-      .chunks_exact(column_start_height)
-      .map(|chunk| Column::new(chunk.to_owned()))
-      .collect_vec();
-    let space_center = Board::COLUMN_COUNT / 2;
-    let spaced_columns = (0..Board::COLUMN_COUNT)
-      .map(|col_idx| {
-        if col_idx < space_center {
-          columns[col_idx].clone()
-        } else if col_idx == space_center {
-          Column { cards: Vec::new() }
-        } else {
-          columns[col_idx - 1].clone()
-        }
-      })
-      .collect_vec()
-      .try_into()
-      .unwrap();
-
-    let minor_foundation_maxes = [Some(1); 4];
-
-    Self {
-      columns: spaced_columns,
-      minor_foundation_storage: None,
-      minor_foundation_maxes,
-      major_foundation_left_max: None,
-      major_foundation_right_min: None,
-    }
+    random::random_board(seed)
   }
 
   pub fn new_solved(final_major_arcana: u8) -> Self {
@@ -100,6 +52,16 @@ impl Board {
       minor_foundation_maxes: [Some(Card::MINOR_ARCANA_MAX); 4],
       major_foundation_left_max: mfl,
       major_foundation_right_min: mfr,
+    }
+  }
+
+  pub fn empty() -> Board {
+    Board {
+      columns: array::from_fn(|_| Column::empty()),
+      minor_foundation_storage: None,
+      minor_foundation_maxes: [None; 4],
+      major_foundation_left_max: None,
+      major_foundation_right_min: None,
     }
   }
 
