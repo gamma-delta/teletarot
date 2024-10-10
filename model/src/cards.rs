@@ -3,7 +3,7 @@ use std::fmt::{Debug, Display};
 
 use getset::CopyGetters;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, enumn::N)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, enumn::N)]
 #[repr(u8)]
 pub enum MinorSuit {
   // today i learned these are not "stars," these are "pentacles".
@@ -26,7 +26,7 @@ impl MinorSuit {
   }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Suit {
   Minor(MinorSuit),
   MajorArcana,
@@ -44,7 +44,7 @@ impl Suit {
 /// A tarot card on the board.
 /// This deliberately does not implement `Copy`, to encourage move semantics
 /// to avoid duplicating cards on accident.
-#[derive(Clone, PartialEq, Eq, CopyGetters)]
+#[derive(Clone, PartialEq, Eq, Hash, CopyGetters)]
 #[getset(get_copy = "pub")]
 pub struct Card {
   suit: Suit,

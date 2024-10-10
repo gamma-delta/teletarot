@@ -2,7 +2,7 @@ use itertools::Itertools;
 use teletarot_model::{Board, BoardZone, Card};
 
 fn main() {
-  let mut board = Board::new(None);
+  let mut board = teletarot_model::random::smartish_random(None);
   let mut rl = rustyline::DefaultEditor::new().unwrap();
 
   println!("Welcome to teletarot.");
@@ -21,6 +21,39 @@ fn main() {
       Ok(it) => it,
       Err(_) => break,
     };
+    if line == "solve" {
+      let soln = teletarot_model::solver::try_solve(&board);
+
+      if let Some(soln) = soln {
+        for (src, dst) in &soln {
+          println!("{:3} -> {:3}", src.short_name(), dst.short_name());
+        }
+
+        board.check_automove_cards();
+        for (src, dst) in soln {
+          let res = board.move_card(src, dst, true);
+          if let Err(ono) = res {
+            panic!(
+              "solver gave bad movement {:?} -> {:?}: {:?}",
+              src, dst, ono
+            );
+          }
+          board.check_automove_cards();
+        }
+      } else {
+        println!("No solution!");
+      }
+
+      continue;
+    } else if line == "z" {
+      board.check_automove_cards();
+      println!("Tried to automove cards");
+      continue;
+    } else if line == "q" {
+      println!("bye!");
+      break;
+    }
+
     let Some((src_s, dst_s)) = line.split_once(' ') else {
       println!("please write a source and dest separated by a space");
       continue;

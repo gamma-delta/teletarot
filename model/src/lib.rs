@@ -1,15 +1,20 @@
 mod cards;
-mod random;
+
+pub mod random;
+
+#[cfg(feature = "solver")]
+pub mod solver;
 
 use std::array;
 
 pub use cards::*;
 
-use fastrand::Rng;
 use getset::{CopyGetters, Getters, MutGetters};
-use itertools::{iproduct, Itertools};
+use itertools::Itertools;
 
-#[derive(Debug, Clone, PartialEq, Eq, Getters, CopyGetters, MutGetters)]
+#[derive(
+  Debug, Clone, PartialEq, Eq, Hash, Getters, CopyGetters, MutGetters,
+)]
 pub struct Board {
   #[getset(get = "pub")]
   columns: [Column; Board::COLUMN_COUNT],
@@ -35,9 +40,8 @@ impl Board {
     (Card::MINOR_ARCANA_MAX - Card::MINOR_ARCANA_MIN + 1) as usize * 4
       + (Card::MAJOR_ARCANA_MAX - Card::MAJOR_ARCANA_MIN + 1) as usize;
 
-  pub fn new(seed: Option<u64>) -> Self {
-    random::random_board(seed)
-  }
+  pub const DESIRED_STACK_HEIGHT: usize =
+    Board::DECK_SIZE / (Board::COLUMN_COUNT - 1);
 
   pub fn new_solved(final_major_arcana: u8) -> Self {
     let (mfl, mfr) = match final_major_arcana {
@@ -99,6 +103,7 @@ impl Board {
       let source_take_count = 1
         + src_col
           .iter()
+          .rev()
           .tuple_windows()
           .take_while(|(prev, here)| prev.can_stack(here))
           .count();
@@ -108,6 +113,7 @@ impl Board {
       let mut transfer = src_col_mut.split_off(sc_len - source_take_count);
       transfer.reverse();
       self.get_column_mut(*dst_col_idx).extend(transfer);
+      return Ok(());
     }
 
     let source_card = match &source_zone {
@@ -211,19 +217,14 @@ impl Board {
     'columns: loop {
       let moved_any = (0..Board::COLUMN_COUNT).any(|col_idx| {
         let src_zone = BoardZone::Column(col_idx);
-        'fix_top: loop {
-          let moved_any =
-            [BoardZone::MinorFoundation, BoardZone::MajorFoundation]
-              .iter()
-              .any(|dst| {
-                let res = self.move_card(src_zone.clone(), dst.clone(), true);
-                res.is_ok()
-              });
-          if !moved_any {
-            break 'fix_top;
-          }
-        }
-        false
+        let moved_any =
+          [BoardZone::MinorFoundation, BoardZone::MajorFoundation]
+            .iter()
+            .any(|dst| {
+              let res = self.move_card(src_zone.clone(), dst.clone(), true);
+              res.is_ok()
+            });
+        moved_any
       });
       if !moved_any {
         break 'columns;
@@ -288,9 +289,37 @@ impl Board {
   pub fn minor_foundation_storage(&self) -> Option<&Card> {
     self.minor_foundation_storage.as_ref()
   }
+
+  pub fn is_solved(&self) -> bool {
+    let minors = self
+      .minor_foundation_maxes
+      .iter()
+      .all(|top| *top == Some(Card::MINOR_ARCANA_MAX));
+    let majors = match (
+      self.major_foundation_left_max,
+      self.major_foundation_right_min,
+    ) {
+      (Some(l), Some(r)) => l + 1 == r,
+      _ => false,
+    };
+    minors && majors
+  }
+
+  /// Return an iterator of all the cards.
+  pub fn all_cards() -> impl Iterator<Item = Card> {
+    let minors =
+      (Card::MINOR_ARCANA_MIN..=Card::MINOR_ARCANA_MAX).flat_map(|minor_idx| {
+        (0..=3).map(move |suit| {
+          Card::new(Suit::Minor(MinorSuit::n(suit).unwrap()), minor_idx)
+        })
+      });
+    let majors = (Card::MAJOR_ARCANA_MIN..=Card::MAJOR_ARCANA_MAX)
+      .map(|major_idx| Card::new(Suit::MajorArcana, major_idx));
+    minors.chain(majors)
+  }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Getters, CopyGetters)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Getters, CopyGetters)]
 pub struct Column {
   /// These go top-to-bottom, so the only accessible card is the last one.
   cards: Vec<Card>,
@@ -322,7 +351,7 @@ impl std::ops::Deref for Column {
 
 impl Column {}
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Copy)]
 pub enum BoardZone {
   Column(usize),
   MinorFoundationStorage,
@@ -339,6 +368,15 @@ impl BoardZone {
       BoardZone::MinorFoundation => true,
       BoardZone::MinorFoundationStorage => false,
       BoardZone::MajorFoundation => true,
+    }
+  }
+
+  pub fn short_name(&self) -> String {
+    match self {
+      BoardZone::Column(c) => format!("c{}", c),
+      BoardZone::MinorFoundationStorage => "s".to_string(),
+      BoardZone::MinorFoundation => "a".to_string(),
+      BoardZone::MajorFoundation => "A".to_string(),
     }
   }
 }

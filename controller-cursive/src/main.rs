@@ -41,7 +41,7 @@ impl TeletarotView {
   fn new(seed: Option<u64>) -> Self {
     Self {
       atlas: CardAtlas::new(),
-      board: Board::new(seed),
+      board: teletarot_model::random::shuffled_random(seed),
       cursor: 0,
       cursor_src: None,
     }
